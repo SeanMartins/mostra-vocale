@@ -182,6 +182,7 @@ export default function AdminView() {
           ))}
         </div>
       )}
+      <div style={{textAlign:'center', color:'#333', fontSize:11, padding:'32px 0 8px'}}>© Martins Osemwengie</div>
     </div>
   );
 }

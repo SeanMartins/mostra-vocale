@@ -259,6 +259,7 @@ export default function PublicView({ mostraTitle, mostraImage }) {
 
         {isRecording && <p style={styles.tapToStop}>Tocca per fermare</p>}
       </div>
+      <div style={styles.copyright}>© Martins Osemwengie</div>
     </div>
   );
 }
@@ -398,4 +399,5 @@ const styles = {
   },
   checkIcon: { color: 'white', fontSize: 56, lineHeight: 1 },
   tapToStop: { color: '#555', fontSize: 14, margin: 0 },
+  copyright: { color: '#333', fontSize: 11, padding: '12px 0', textAlign: 'center', width: '100%', background: '#0a0a0a' },
 };
