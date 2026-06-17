@@ -18,7 +18,9 @@ function openDB() {
 
 export async function saveLocalBackup(blob, mimeType, timestamp) {
   try {
+    console.log('saveLocalBackup: inizio', { size: blob.size, mimeType, timestamp });
     const db = await openDB();
+    console.log('saveLocalBackup: DB aperto');
     return new Promise((resolve, reject) => {
       const tx = db.transaction(STORE_NAME, 'readwrite');
       const store = tx.objectStore(STORE_NAME);
@@ -29,11 +31,11 @@ export async function saveLocalBackup(blob, mimeType, timestamp) {
         size: blob.size,
         uploadedToFirebase: false,
       });
-      req.onsuccess = () => resolve(req.result);
-      req.onerror = () => reject(req.error);
+      req.onsuccess = () => { console.log('saveLocalBackup: salvato, id=', req.result); resolve(req.result); };
+      req.onerror = () => { console.error('saveLocalBackup: errore store', req.error); reject(req.error); };
     });
   } catch (err) {
-    console.warn('IndexedDB backup failed:', err);
+    console.error('saveLocalBackup: eccezione', err);
     return null;
   }
 }
