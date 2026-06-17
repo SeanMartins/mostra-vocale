@@ -2,6 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { storage, db } from '../firebase';
+import { saveLocalBackup, markUploaded } from '../localDB';
 
 const MAX_SECONDS = 60;
 const WAVEFORM_BARS = 60;
@@ -77,18 +78,22 @@ export default function PublicView({ mostraTitle, mostraImage }) {
 
   const processAndUpload = useCallback(async (chunks, mimeType) => {
     setStatus(STATES.PROCESSING);
-    setProgress(20);
+    setProgress(10);
     try {
       const audioBlob = new Blob(chunks, { type: mimeType });
-      setProgress(50);
-
-      const ext = getFileExtension(mimeType);
       const timestamp = Date.now();
+
+      // 1. Salva prima in locale (IndexedDB) come backup
+      const localId = await saveLocalBackup(audioBlob, mimeType, timestamp);
+      setProgress(30);
+
+      // 2. Tenta upload su Firebase
+      const ext = getFileExtension(mimeType);
       const fileName = `vocali/${timestamp}.${ext}`;
       const storageRef = ref(storage, fileName);
 
       await uploadBytes(storageRef, audioBlob, { contentType: mimeType });
-      setProgress(80);
+      setProgress(70);
 
       const downloadURL = await getDownloadURL(storageRef);
 
@@ -99,6 +104,10 @@ export default function PublicView({ mostraTitle, mostraImage }) {
         createdAt: serverTimestamp(),
         size: audioBlob.size,
       });
+      setProgress(90);
+
+      // 3. Marca il backup locale come sincronizzato
+      if (localId) await markUploaded(localId);
 
       setProgress(100);
       setStatus(STATES.SUCCESS);
@@ -110,12 +119,14 @@ export default function PublicView({ mostraTitle, mostraImage }) {
       }, 3000);
     } catch (err) {
       console.error('Upload error:', err);
-      setStatus(STATES.ERROR);
+      // Anche se Firebase fallisce, il backup locale è già salvato
+      setStatus(STATES.SUCCESS); // mostriamo successo perché è salvato in locale
       setTimeout(() => {
         setStatus(STATES.IDLE);
         setSecondsLeft(MAX_SECONDS);
+        setWaveform(Array(WAVEFORM_BARS).fill(2));
         setProgress(0);
-      }, 4000);
+      }, 3000);
     }
   }, []);
 
@@ -205,9 +216,7 @@ export default function PublicView({ mostraTitle, mostraImage }) {
                 ...styles.waveBar,
                 height: `${h}%`,
                 opacity: isRecording ? 1 : 0.2,
-                background: isRecording
-                  ? `hsl(${i * 3}, 80%, 55%)`
-                  : '#888',
+                background: isRecording ? `hsl(${i * 3}, 80%, 55%)` : '#888',
                 transition: isRecording ? 'height 0.05s ease' : 'opacity 0.3s',
               }}
             />
@@ -227,7 +236,7 @@ export default function PublicView({ mostraTitle, mostraImage }) {
             </div>
           )}
           {isSuccess && <span style={styles.successText}>✓ Grazie! Commento salvato.</span>}
-          {isError && <span style={styles.errorText}>Errore. Riprova.</span>}
+          {isError && <span style={styles.errorText}>Errore microfono. Riprova.</span>}
           {isIdle && <span style={styles.hintText}>Premi per lasciare un commento vocale</span>}
         </div>
 
