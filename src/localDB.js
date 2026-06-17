@@ -1,5 +1,5 @@
 const DB_NAME = 'mostra-vocale-backup';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 const STORE_NAME = 'vocali';
 
 function openDB() {
