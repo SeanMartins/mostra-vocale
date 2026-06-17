@@ -109,6 +109,16 @@ export default function PublicView({ mostraTitle, mostraImage }) {
       // 3. Marca il backup locale come sincronizzato
       if (localId) await markUploaded(localId);
 
+      // 4. Download automatico sul dispositivo (backup locale)
+      const dlUrl = URL.createObjectURL(audioBlob);
+      const dlA = document.createElement('a');
+      dlA.href = dlUrl;
+      dlA.download = `vocale_${timestamp}.${ext}`;
+      document.body.appendChild(dlA);
+      dlA.click();
+      document.body.removeChild(dlA);
+      setTimeout(() => URL.revokeObjectURL(dlUrl), 2000);
+
       setProgress(100);
       setStatus(STATES.SUCCESS);
       setTimeout(() => {
