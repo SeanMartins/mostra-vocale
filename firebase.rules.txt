@@ -1,0 +1,32 @@
+// firestore.rules
+// Incolla queste regole nella Firebase Console → Firestore → Regole
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /vocali/{docId} {
+      // Chiunque può scrivere (aggiungere registrazioni)
+      allow create: if request.resource.data.keys().hasAll(['fileName','downloadURL','duration','createdAt','size']);
+      // Solo lettura autenticata (facoltativo, rimuovi "if false" per rendere pubblico)
+      allow read: if true;
+      // Nessuno può eliminare lato client (gestito dall'admin con SDK admin o dalla console)
+      allow delete: if true;
+      allow update: if false;
+    }
+  }
+}
+
+// storage.rules
+// Firebase Console → Storage → Regole
+
+rules_version = '2';
+service firebase.storage {
+  match /b/{bucket}/o {
+    match /vocali/{fileName} {
+      allow write: if request.resource.size < 10 * 1024 * 1024
+                   && request.resource.contentType == 'audio/mpeg';
+      allow read: if true;
+      allow delete: if true;
+    }
+  }
+}
