@@ -9,7 +9,6 @@ export default async function handler(req, res) {
     const apiKey = process.env.OPENAI_API_KEY;
     if (!apiKey) return res.status(500).json({ error: 'Missing OpenAI API key' });
 
-    // Forward the multipart form data directly to OpenAI
     const chunks = [];
     for await (const chunk of req) chunks.push(chunk);
     const body = Buffer.concat(chunks);
