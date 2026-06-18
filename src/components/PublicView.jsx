@@ -7,33 +7,34 @@ import { updateDoc, doc } from 'firebase/firestore';
 
 async function transcribeAndSave(audioBlob, ext, timestamp, fileName) {
   try {
-    const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
-    if (!apiKey) return;
-
-    // Prepara il file per Whisper
+    console.log('Trascrizione: invio a Whisper...');
     const formData = new FormData();
     const file = new File([audioBlob], `audio.${ext}`, { type: audioBlob.type });
     formData.append('file', file);
     formData.append('model', 'whisper-1');
     formData.append('language', 'it');
 
-    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+    const response = await fetch('/api/transcribe', {
       method: 'POST',
-      headers: { 'Authorization': `Bearer ${apiKey}` },
       body: formData,
     });
 
-    if (!response.ok) throw new Error(`Whisper error: ${response.status}`);
+    if (!response.ok) {
+      const err = await response.json();
+      throw new Error(`Whisper error: ${response.status} - ${JSON.stringify(err)}`);
+    }
     const data = await response.json();
     const transcription = data.text || '';
+    console.log('Trascrizione ricevuta:', transcription);
 
-    // Salva trascrizione su Firestore (cerca il documento per fileName)
+    // Salva trascrizione su Firestore
     const { db } = await import('../firebase');
     const { collection, query, where, getDocs, updateDoc: ud } = await import('firebase/firestore');
     const q = query(collection(db, 'vocali'), where('fileName', '==', fileName));
     const snap = await getDocs(q);
     if (!snap.empty) {
       await ud(snap.docs[0].ref, { transcription });
+      console.log('Trascrizione salvata su Firestore');
     }
 
     // Download automatico trascrizione .txt
