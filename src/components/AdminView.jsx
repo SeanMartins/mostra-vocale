@@ -172,6 +172,12 @@ export default function AdminView() {
                   <div style={s.recMeta}>
                     <span style={s.recDate}>{formatDate(rec.createdAt)}</span>
                     <span style={s.recDetails}>{formatSize(rec.size)}</span>
+                    {rec.transcription && (
+                      <span style={s.transcription}>📄 {rec.transcription}</span>
+                    )}
+                    {!rec.transcription && (
+                      <span style={s.transcriptionPending}>⏳ Trascrizione in corso...</span>
+                    )}
                   </div>
                   <div style={s.recActions}>
                     <a href={rec.downloadURL} download={`vocale_${i + 1}.webm`} style={s.dlBtn}>↓</a>
@@ -261,4 +267,6 @@ const s = {
   recActions: { display: 'flex', gap: 8, alignItems: 'center' },
   dlBtn: { background: 'transparent', border: '1px solid #333', borderRadius: 6, color: '#aaa', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 16, textDecoration: 'none', cursor: 'pointer' },
   delBtn: { background: 'transparent', border: '1px solid #2a1a1a', borderRadius: 6, color: '#633', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, cursor: 'pointer' },
+  transcription: { color: '#aaa', fontSize: 12, fontStyle: 'italic', marginTop: 4, lineHeight: 1.4 },
+  transcriptionPending: { color: '#444', fontSize: 11, marginTop: 4 },
 };

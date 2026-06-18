@@ -3,6 +3,54 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { storage, db } from '../firebase';
 import { saveLocalBackup, markUploaded } from '../localDB';
+import { updateDoc, doc } from 'firebase/firestore';
+
+async function transcribeAndSave(audioBlob, ext, timestamp, fileName) {
+  try {
+    const apiKey = process.env.REACT_APP_OPENAI_API_KEY;
+    if (!apiKey) return;
+
+    // Prepara il file per Whisper
+    const formData = new FormData();
+    const file = new File([audioBlob], `audio.${ext}`, { type: audioBlob.type });
+    formData.append('file', file);
+    formData.append('model', 'whisper-1');
+    formData.append('language', 'it');
+
+    const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      method: 'POST',
+      headers: { 'Authorization': `Bearer ${apiKey}` },
+      body: formData,
+    });
+
+    if (!response.ok) throw new Error(`Whisper error: ${response.status}`);
+    const data = await response.json();
+    const transcription = data.text || '';
+
+    // Salva trascrizione su Firestore (cerca il documento per fileName)
+    const { db } = await import('../firebase');
+    const { collection, query, where, getDocs, updateDoc: ud } = await import('firebase/firestore');
+    const q = query(collection(db, 'vocali'), where('fileName', '==', fileName));
+    const snap = await getDocs(q);
+    if (!snap.empty) {
+      await ud(snap.docs[0].ref, { transcription });
+    }
+
+    // Download automatico trascrizione .txt
+    const txtBlob = new Blob([transcription], { type: 'text/plain;charset=utf-8' });
+    const txtUrl = URL.createObjectURL(txtBlob);
+    const txtA = document.createElement('a');
+    txtA.href = txtUrl;
+    txtA.download = `trascrizione_${timestamp}.txt`;
+    document.body.appendChild(txtA);
+    txtA.click();
+    document.body.removeChild(txtA);
+    setTimeout(() => URL.revokeObjectURL(txtUrl), 2000);
+
+  } catch (err) {
+    console.error('Transcription error:', err);
+  }
+}
 
 const MAX_SECONDS = 60;
 const WAVEFORM_BARS = 60;
@@ -109,7 +157,7 @@ export default function PublicView({ mostraTitle, mostraImage }) {
       // 3. Marca il backup locale come sincronizzato
       if (localId) await markUploaded(localId);
 
-      // 4. Download automatico sul dispositivo (backup locale)
+      // 4. Download automatico audio
       const dlUrl = URL.createObjectURL(audioBlob);
       const dlA = document.createElement('a');
       dlA.href = dlUrl;
@@ -118,6 +166,9 @@ export default function PublicView({ mostraTitle, mostraImage }) {
       dlA.click();
       document.body.removeChild(dlA);
       setTimeout(() => URL.revokeObjectURL(dlUrl), 2000);
+
+      // 5. Trascrizione Whisper in background
+      transcribeAndSave(audioBlob, ext, timestamp, fileName);
 
       setProgress(100);
       setStatus(STATES.SUCCESS);
