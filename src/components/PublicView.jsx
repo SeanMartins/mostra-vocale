@@ -3,7 +3,6 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { storage, db } from '../firebase';
 import { saveLocalBackup, markUploaded } from '../localDB';
-import { updateDoc, doc } from 'firebase/firestore';
 
 async function transcribeAndSave(audioBlob, ext, timestamp, fileName) {
   try {
