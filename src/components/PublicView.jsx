@@ -4,54 +4,6 @@ import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { storage, db } from '../firebase';
 import { saveLocalBackup, markUploaded } from '../localDB';
 
-async function transcribeAndSave(audioBlob, ext, timestamp, fileName) {
-  try {
-    console.log('Trascrizione: invio a Whisper...');
-    const formData = new FormData();
-    const file = new File([audioBlob], `audio.${ext}`, { type: audioBlob.type });
-    formData.append('file', file);
-    formData.append('model', 'whisper-1');
-    formData.append('language', 'it');
-
-    const response = await fetch('/api/transcribe', {
-      method: 'POST',
-      body: formData,
-    });
-
-    if (!response.ok) {
-      const err = await response.json();
-      throw new Error(`Whisper error: ${response.status} - ${JSON.stringify(err)}`);
-    }
-    const data = await response.json();
-    const transcription = data.text || '';
-    console.log('Trascrizione ricevuta:', transcription);
-
-    // Salva trascrizione su Firestore
-    const { db } = await import('../firebase');
-    const { collection, query, where, getDocs, updateDoc: ud } = await import('firebase/firestore');
-    const q = query(collection(db, 'vocali'), where('fileName', '==', fileName));
-    const snap = await getDocs(q);
-    if (!snap.empty) {
-      await ud(snap.docs[0].ref, { transcription });
-      console.log('Trascrizione salvata su Firestore');
-    }
-
-    // Download automatico trascrizione .txt
-    const txtBlob = new Blob([transcription], { type: 'text/plain;charset=utf-8' });
-    const txtUrl = URL.createObjectURL(txtBlob);
-    const txtA = document.createElement('a');
-    txtA.href = txtUrl;
-    txtA.download = `trascrizione_${timestamp}.txt`;
-    document.body.appendChild(txtA);
-    txtA.click();
-    document.body.removeChild(txtA);
-    setTimeout(() => URL.revokeObjectURL(txtUrl), 2000);
-
-  } catch (err) {
-    console.error('Transcription error:', err);
-  }
-}
-
 const MAX_SECONDS = 60;
 const WAVEFORM_BARS = 60;
 
@@ -166,9 +118,6 @@ export default function PublicView({ mostraTitle, mostraImage }) {
       dlA.click();
       document.body.removeChild(dlA);
       setTimeout(() => URL.revokeObjectURL(dlUrl), 2000);
-
-      // 5. Trascrizione Whisper in background
-      transcribeAndSave(audioBlob, ext, timestamp, fileName);
 
       setProgress(100);
       setStatus(STATES.SUCCESS);

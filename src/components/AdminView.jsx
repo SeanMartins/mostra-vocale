@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { collection, query, orderBy, onSnapshot, deleteDoc, doc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore';
 import { ref, deleteObject } from 'firebase/storage';
 import { db, storage } from '../firebase';
 import { getAllLocalRecordings, deleteLocalRecording, downloadBlob } from '../localDB';
@@ -36,6 +36,7 @@ export default function AdminView() {
   const [localRecs, setLocalRecs] = useState([]);
   const [playing, setPlaying] = useState(null);
   const [deleting, setDeleting] = useState(null);
+  const [transcribing, setTranscribing] = useState(null);
   const [tab, setTab] = useState('firebase');
   const audioRef = useRef(null);
 
@@ -80,6 +81,36 @@ export default function AdminView() {
       await deleteDoc(doc(db, 'vocali', rec.id));
     } catch (e) { alert('Errore durante l\'eliminazione'); }
     setDeleting(null);
+  };
+
+  const transcribeNow = async (rec) => {
+    setTranscribing(rec.id);
+    try {
+      // Scarica l'audio da Firebase
+      const audioRes = await fetch(rec.downloadURL);
+      const audioBlob = await audioRes.blob();
+      const ext = rec.fileName.split('.').pop();
+
+      const formData = new FormData();
+      const file = new File([audioBlob], `audio.${ext}`, { type: rec.mimeType || audioBlob.type });
+      formData.append('file', file);
+      formData.append('model', 'whisper-1');
+      formData.append('language', 'it');
+
+      const response = await fetch('/api/transcribe', { method: 'POST', body: formData });
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(JSON.stringify(err));
+      }
+      const data = await response.json();
+      const transcription = data.text || '(nessun testo rilevato)';
+
+      await updateDoc(doc(db, 'vocali', rec.id), { transcription });
+    } catch (e) {
+      console.error('Errore trascrizione:', e);
+      alert('Errore durante la trascrizione. Riprova.');
+    }
+    setTranscribing(null);
   };
 
   const deleteLocalRec = async (id) => {
@@ -159,6 +190,7 @@ export default function AdminView() {
           {recordings.length > 0 && (
             <button onClick={downloadAll} style={s.downloadAllBtn}>↓ Scarica tutti</button>
           )}
+          <p style={s.hint}>📝 = trascrivi con Whisper (~$0.006 a registrazione)</p>
           {recordings.length === 0 ? (
             <div style={s.empty}><p>Nessuna registrazione su Firebase.</p></div>
           ) : (
@@ -175,11 +207,18 @@ export default function AdminView() {
                     {rec.transcription && (
                       <span style={s.transcription}>📄 {rec.transcription}</span>
                     )}
-                    {!rec.transcription && (
-                      <span style={s.transcriptionPending}>⏳ Trascrizione in corso...</span>
-                    )}
                   </div>
                   <div style={s.recActions}>
+                    {!rec.transcription && (
+                      <button
+                        onClick={() => transcribeNow(rec)}
+                        style={s.transcribeBtn}
+                        disabled={transcribing === rec.id}
+                        title="Trascrivi con Whisper (~$0.006)"
+                      >
+                        {transcribing === rec.id ? '...' : '📝'}
+                      </button>
+                    )}
                     <a href={rec.downloadURL} download={`vocale_${i + 1}.webm`} style={s.dlBtn}>↓</a>
                     <button onClick={() => deleteRec(rec)} style={s.delBtn} disabled={deleting === rec.id}>
                       {deleting === rec.id ? '...' : '✕'}
@@ -269,4 +308,6 @@ const s = {
   delBtn: { background: 'transparent', border: '1px solid #2a1a1a', borderRadius: 6, color: '#633', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, cursor: 'pointer' },
   transcription: { color: '#aaa', fontSize: 12, fontStyle: 'italic', marginTop: 4, lineHeight: 1.4 },
   transcriptionPending: { color: '#444', fontSize: 11, marginTop: 4 },
+  transcribeBtn: { background: 'transparent', border: '1px solid #2a3a4a', borderRadius: 6, color: '#5a9bd5', width: 32, height: 32, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, cursor: 'pointer' },
+  hint: { color: '#444', fontSize: 12, margin: '0 0 16px' },
 };
