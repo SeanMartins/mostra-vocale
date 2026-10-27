@@ -1,32 +1,54 @@
-// firestore.rules
-// Incolla queste regole nella Firebase Console → Firestore → Regole
-
+// =====================================================================
+// FIRESTORE — Firebase Console → Firestore Database → Regole
+// =====================================================================
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isAdmin() { return request.auth != null; }
+
+    // Commenti vocali: i visitatori possono solo AGGIUNGERE; leggere, trascrivere ed eliminare solo l'admin.
     match /vocali/{docId} {
-      // Chiunque può scrivere (aggiungere registrazioni)
-      allow create: if request.resource.data.keys().hasAll(['fileName','downloadURL','duration','createdAt','size']);
-      // Solo lettura autenticata (facoltativo, rimuovi "if false" per rendere pubblico)
+      allow create: if request.resource.data.keys().hasOnly(
+                         ['fileName','downloadURL','mimeType','size','duration','peaks','operaId','source','createdAt','recordedAt'])
+                    && request.resource.data.fileName is string
+                    && request.resource.data.fileName.matches('vocali/[0-9]+\\.(webm|m4a|ogg|mp3)')
+                    && request.resource.data.size is int
+                    && request.resource.data.size < 10 * 1024 * 1024;
+      allow read, delete: if isAdmin();
+      allow update: if isAdmin() && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['transcription']);
+    }
+
+    // Impostazioni della mostra e opere: lettura pubblica (servono alla postazione), scrittura solo admin.
+    match /impostazioni/{docId} {
       allow read: if true;
-      // Nessuno può eliminare lato client (gestito dall'admin con SDK admin o dalla console)
-      allow delete: if true;
-      allow update: if false;
+      allow write: if isAdmin();
+    }
+    match /opere/{docId} {
+      allow read: if true;
+      allow write: if isAdmin();
     }
   }
 }
 
-// storage.rules
-// Firebase Console → Storage → Regole
-
+// =====================================================================
+// STORAGE — Firebase Console → Storage → Regole
+// =====================================================================
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
+    // Audio dei visitatori: chiunque può caricare un file audio < 10 MB; solo l'admin elimina.
     match /vocali/{fileName} {
-      allow write: if request.resource.size < 10 * 1024 * 1024
-                   && request.resource.contentType == 'audio/mpeg';
+      allow create: if request.resource.size < 10 * 1024 * 1024
+                    && request.resource.contentType.matches('audio/.*');
+      allow read: if true;   // i link di download sono casuali e non elencabili
+      allow delete: if request.auth != null;
+    }
+    // Immagini della mostra caricate dall'admin.
+    match /impostazioni/{fileName} {
       allow read: if true;
-      allow delete: if true;
+      allow write: if request.auth != null
+                   && request.resource.size < 15 * 1024 * 1024
+                   && request.resource.contentType.matches('image/.*');
     }
   }
 }

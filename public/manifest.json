@@ -1,9 +1,9 @@
 {
-  "short_name": "Mostra Vocale",
-  "name": "Commenti Vocali Mostra",
-  "start_url": ".",
+  "short_name": "Commenti",
+  "name": "Commenti vocali della mostra",
+  "start_url": "/?kiosk",
   "display": "fullscreen",
-  "theme_color": "#0a0a0a",
-  "background_color": "#0a0a0a",
-  "orientation": "portrait"
+  "theme_color": "#0c0c0d",
+  "background_color": "#0c0c0d",
+  "orientation": "any"
 }

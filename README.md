@@ -1,115 +1,38 @@
-# Mostra Vocale 🎙️
+# Mostra Vocale
 
-App per raccogliere commenti vocali dei visitatori durante una mostra.
-Deploy su Vercel + Firebase Storage/Firestore.
+Commenti vocali dei visitatori di una mostra: una postazione (iPad) e un codice QR accanto a ogni opera.
+Ogni mostra ha il proprio nome, immagine e colore (white-label).
 
----
+## Percorsi
+
+| Indirizzo | Uso |
+|---|---|
+| `/?kiosk` | Postazione generale (iPad). Aggiungila alla schermata Home: si apre a schermo intero. |
+| `/opera/<id>` | Pagina aperta dal QR accanto a un'opera: il commento resta collegato a quell'opera. |
+| `/admin` | Archivio: commenti, statistiche, opere e QR, impostazioni della mostra. |
+
+## Funzioni
+
+- Registrazione fino a 30/60/90 secondi con forma d'onda dal vivo; salvataggio locale prima dell'invio e reinvio automatico quando torna la rete.
+- Messaggi onesti al visitatore: salvato, salvato solo sul dispositivo, microfono bloccato, registrazione troppo breve.
+- Archivio con forma d'onda reale di ogni commento, ricerca nelle trascrizioni, filtri per opera e periodo, trascrizione con Whisper (singola o in blocco), export CSV, download audio con nomi leggibili.
+- Statistiche: commenti per giorno, per ora, per opera, durata media.
+- Opere e QR: elenco opere, link e QR per ciascuna, stampa dei cartellini.
+- Impostazioni: titolo, sottotitolo, date, luogo, immagine, colore, durata massima.
 
 ## Stack
 
-- **React** (Create React App) — PWA fullscreen su iPad
-- **lamejs** — encoding MP3 client-side (nessun server necessario)
-- **Firebase Storage** — archiviazione MP3
-- **Firebase Firestore** — metadati registrazioni (data, durata, URL)
-- **Vercel** — deploy
+React (Create React App) · Firebase Firestore + Storage + Authentication · Vercel (funzione `api/transcribe.js` verso OpenAI Whisper).
 
----
+## Configurazione
 
-## Setup in 5 passi
+1. **Firebase Authentication** → Metodo di accesso → attiva *Email/password* e crea l'utente dell'organizzatore (Users → Aggiungi utente). Il login admin usa questo account (la vecchia `REACT_APP_ADMIN_PASSWORD` non è più usata).
+2. **Regole**: incolla `firebase.rules.txt` in Firestore → Regole e Storage → Regole.
+3. **Variabili Vercel** (già presenti): `REACT_APP_FIREBASE_*`, `OPENAI_API_KEY`. `REACT_APP_MOSTRA_TITLE` e `REACT_APP_MOSTRA_IMAGE` restano come valori iniziali finché non salvi le impostazioni dall'admin.
 
-### 1. Firebase — crea il progetto
-
-Nella **Firebase Console** (console.firebase.google.com):
-
-1. Crea un nuovo progetto (o usa uno esistente)
-2. Aggiungi un'**app Web** → copia le credenziali
-3. Attiva **Firestore Database** (modalità produzione)
-4. Attiva **Storage** (modalità produzione)
-5. Incolla le regole da `firebase.rules.txt` in Firestore → Regole e Storage → Regole
-
-### 2. Configura le variabili d'ambiente
-
-```bash
-cp .env.example .env.local
-```
-
-Compila `.env.local` con le credenziali Firebase copiate al passo 1.
-
-Per l'immagine della locandina (`REACT_APP_MOSTRA_IMAGE`):
-- Caricala su Firebase Storage manualmente
-- Oppure usa qualsiasi URL pubblico
-- Se lasci vuoto, appare il nome della mostra come testo
-
-### 3. Installa e testa in locale
+## Sviluppo
 
 ```bash
 npm install
 npm start
 ```
-
-- **Schermata pubblica:** `http://localhost:3000`
-- **Pannello admin:** `http://localhost:3000/admin`
-
-### 4. Deploy su Vercel
-
-```bash
-npm install -g vercel
-vercel --prod
-```
-
-Oppure collega il repository GitHub a Vercel e aggiungi le variabili d'ambiente nella dashboard Vercel (Settings → Environment Variables).
-
-### 5. Configura l'iPad per la mostra
-
-1. Apri Safari sull'iPad → vai all'URL dell'app
-2. Tocca **Condividi → Aggiungi a schermata Home**
-3. Apri l'app dalla schermata Home → va in fullscreen automatico
-4. Su iPad: Impostazioni → Accessibilità → Zoom OFF, Guided Access ON (opzionale, blocca l'app)
-
----
-
-## Struttura cartelle
-
-```
-src/
-  components/
-    PublicView.jsx    # Schermata visitatori (tasto rosso + waveform)
-    AdminView.jsx     # Archivio admin con player e download
-  firebase.js         # Configurazione Firebase
-  mp3encoder.js       # Encoding WebM→MP3 con lamejs
-  App.js              # Router (/ → pubblico, /admin → admin)
-  App.css             # Animazioni globali
-```
-
----
-
-## Funzionamento tecnico
-
-1. Il browser acquisisce audio dal microfono tramite `getUserMedia`
-2. `MediaRecorder` salva chunks in formato WebM/Opus
-3. Allo stop, `AudioContext.decodeAudioData` decodifica il WebM
-4. `lamejs` ri-encode in MP3 128kbps client-side (nessun server!)
-5. Il Blob MP3 viene caricato su Firebase Storage
-6. I metadati (URL, durata, data) vengono salvati in Firestore
-
----
-
-## Pannello Admin
-
-URL: `/admin`
-Password: valore di `REACT_APP_ADMIN_PASSWORD` nel file `.env.local`
-
-Funzioni:
-- Lista registrazioni in tempo reale (WebSocket Firestore)
-- Player integrato (play/pause per ogni traccia)
-- Download singolo MP3
-- Download massivo (tutti i file)
-- Eliminazione singola (rimuove da Storage + Firestore)
-
----
-
-## Note iOS/Safari
-
-Safari su iOS richiede che l'`AudioContext` venga creato in risposta a un gesto dell'utente — questa app lo gestisce correttamente creando il context solo al tap del tasto REC.
-
-La conversione MP3 avviene interamente nel browser; nessun dato audio transita su server intermedi.

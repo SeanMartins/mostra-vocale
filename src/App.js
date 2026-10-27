@@ -1,29 +1,19 @@
-import React from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
-import PublicView from './components/PublicView';
-import AdminView from './components/AdminView';
-import './App.css';
+import React, { Suspense, lazy } from 'react';
+import Kiosk from './views/Kiosk';
+import './styles/base.css';
 
-const MOSTRA_TITLE = process.env.REACT_APP_MOSTRA_TITLE || 'Mostra';
-const MOSTRA_IMAGE = process.env.REACT_APP_MOSTRA_IMAGE || '/image.jpeg';
+const AdminApp = lazy(() => import('./views/admin/AdminApp'));
 
-function App() {
-  return (
-    <BrowserRouter>
-      <Routes>
-        <Route
-          path="/"
-          element={
-            <PublicView
-              mostraTitle={MOSTRA_TITLE}
-              mostraImage={MOSTRA_IMAGE}
-            />
-          }
-        />
-        <Route path="/admin" element={<AdminView />} />
-      </Routes>
-    </BrowserRouter>
-  );
+// Percorsi: /  ·  /opera/:id (QR accanto all'opera)  ·  /admin
+export default function App() {
+  const path = window.location.pathname.replace(/\/+$/, '');
+  if (path === '/admin') {
+    return (
+      <Suspense fallback={<div className="admin-loading" aria-busy="true" />}>
+        <AdminApp />
+      </Suspense>
+    );
+  }
+  const m = path.match(/^\/opera\/([A-Za-z0-9_-]+)$/);
+  return <Kiosk operaId={m ? m[1] : null} />;
 }
-
-export default App;
